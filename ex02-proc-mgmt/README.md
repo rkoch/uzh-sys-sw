@@ -55,6 +55,7 @@ Additionally you can remove all `*.o` files and all binaries if you enter this c
 History
 -------
 
+* Fixes return code problem when debugging in eclipse /rko, 2013-10-20
 * Initial commit /rko:rma, 2013-10-07
 
 

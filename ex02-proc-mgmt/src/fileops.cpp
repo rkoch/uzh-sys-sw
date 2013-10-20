@@ -108,7 +108,7 @@ int main(int pArgc, const char* pArgv[]) {
 		int status;
 
 		// blocks and waits for returning of child process
-		wait(&status);
+		waitpid(pid, &status, 0);
 
 		if (WIFEXITED(status)) {
 			// get retcode after exit
