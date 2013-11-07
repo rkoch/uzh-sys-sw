@@ -10,6 +10,7 @@
 #include <fstream>
 #include <vector>
 #include <sstream>
+#include <cstring>
 #include <algorithm>
 #include "math.h"
 #include <omp.h>
@@ -58,19 +59,14 @@ std::vector<int> split(const std::string &s, char delim) {
 std::vector<std::vector<int> > readFile(const char *pPath) {
 	std::ifstream infile(pPath);
 	if (!infile.good()) {
-//		perror("An error occured during file read. File: " + pPath + ", Error: ")
-		//printf("%s%n", strerror(errno));
-//		std::cerr << "An error occured during file read. File: " << pPath << ", Error: " << strerror(errno) << std::endl;
-		perror("I/O Error occured");
+		perror("I/O Error occured.");
 		infile.close();
 		exit(EXIT_FAILURE);
 	}
 	int rows;
 	int cols;
 	infile >> rows; // zeile
-	//std::cout << "zeilen: " << rows << std::endl;
 	infile >> cols; // spalte
-	//std::cout << "spalten " << cols << std::endl;
 	
 	int lineNumber = 0; // current line number
 	std::vector<std::vector<int> > tmp(rows, std::vector<int>(cols));
@@ -78,7 +74,6 @@ std::vector<std::vector<int> > readFile(const char *pPath) {
 	
 	while (std::getline(infile, elem) && (lineNumber < tmp.size())) {
 		if (elem != "") {
-			//std::cout << "elem: " << elem << std::endl;
 			tmp.at(lineNumber) = split(elem, ' ');
 			++lineNumber;
 		}
@@ -135,141 +130,197 @@ float calculateGoodnes(std::vector<int> a, std::vector<int> b) {
 // find occurence in a parallel way using OpenMP
 void parallelExec() {
 	parallelStartTime = omp_get_wtime();
-		unsigned long tmpPatternHeightWidth = pattern.size(); // Patterns are always squares according the excercise
-		// going through all sequences
-			unsigned long tmpDataSchemeWidth = data.at(0).size(); // width is equal over the whole dataScheme
-			unsigned long tmpDataSchemeHeight = data.size();
-			// going through the whole data-scheme
+	unsigned long tmpPatternHeightWidth = pattern.size(); // Patterns are always squares according the excercise
+	// going through all sequences
+	unsigned long tmpDataSchemeWidth = data.at(0).size(); // width is equal over the whole dataScheme
+	unsigned long tmpDataSchemeHeight = data.size();
+	// going through the whole data-scheme
 #pragma omp parallel for shared(occurenceList) schedule(static) num_threads(64)
-			for (int k=0; k<tmpDataSchemeHeight-tmpPatternHeightWidth+1; k++) {
-				for (int l=0; l<tmpDataSchemeWidth-tmpPatternHeightWidth+1; l++) {
-					// compare each element of the pattern with the corresponding one of the dataScheme according to the rules described later
-					bool cond1 = false;
-					bool cond2 = false;
-					std::vector<int> tmpListForMedianData;
-					std::vector<int> tmpListForMedianPattern;
-					occurence tmp;
-					tmp.xPos = l;
-					tmp.yPos = k;
-					
-					// std::cout << "current element: " << dataList.at(j).at(k).at(l) << std::endl;
-					
-					for (int m=0; m<tmpPatternHeightWidth; m++) {
-						for (int n=0; n<tmpPatternHeightWidth; n++) {
-							// condition 1: each pair must have a difference of at most 10
-							// condition 2: the median over all values of the temporary part
-							// std::cout << patternList.at(i).at(m).at(n) << std::endl;
-							if ((data.at(k+m).at(l+n) - pattern.at(m).at(n)) < MAX_DIFFERENCE) {
-								cond1 = true;
-							}
-							tmpListForMedianData.push_back(data.at(k+m).at(l+n));
-							tmpListForMedianPattern.push_back(pattern.at(m).at(n));
-						}
+	for (int k=0; k<tmpDataSchemeHeight-tmpPatternHeightWidth+1; k++) {
+		for (int l=0; l<tmpDataSchemeWidth-tmpPatternHeightWidth+1; l++) {
+			// compare each element of the pattern with the corresponding one of the dataScheme according to the rules described later
+			bool cond1 = false;
+			bool cond2 = false;
+			std::vector<int> tmpListForMedianData;
+			std::vector<int> tmpListForMedianPattern;
+			occurence tmp;
+			tmp.xPos = l;
+			tmp.yPos = k;
+			
+			for (int m=0; m<tmpPatternHeightWidth; m++) {
+				for (int n=0; n<tmpPatternHeightWidth; n++) {
+					// condition 1: each pair must have a difference of at most 10
+					// condition 2: the median over all values of the temporary part
+					if ((data.at(k+m).at(l+n) - pattern.at(m).at(n)) < MAX_DIFFERENCE) {
+						cond1 = true;
 					}
-					// check both conditions; if the first condition is false, it doesn't matter, if the second is true
-					if (cond1) {
-						// calculate median
-						cond2 = checkMedian(tmpListForMedianData, tmpListForMedianPattern);
-						if (cond2) {
-							// calculate goodness
-							tmp.goodness = calculateGoodnes(tmpListForMedianData, tmpListForMedianPattern);
-							// report l,k as coordinates for a found pattern
-							occurenceList.push_back(tmp);
-						}
-					}
+					tmpListForMedianData.push_back(data.at(k+m).at(l+n));
+					tmpListForMedianPattern.push_back(pattern.at(m).at(n));
 				}
 			}
+			// check both conditions; if the first condition is false, it doesn't matter, if the second is true
+			if (cond1) {
+				// calculate median
+				cond2 = checkMedian(tmpListForMedianData, tmpListForMedianPattern);
+				if (cond2) {
+					// calculate goodness
+					tmp.goodness = calculateGoodnes(tmpListForMedianData, tmpListForMedianPattern);
+					// report l,k as coordinates for a found pattern
+					occurenceList.push_back(tmp);
+				}
+			}
+		}
+	}
 	parallelEndTime = omp_get_wtime();
-		
+	
 }
 
 // find occurences in a serial way
 void serialExec() {
 	serialStartTime = omp_get_wtime();
-		unsigned long tmpPatternHeightWidth = pattern.size(); // Patterns are always squares according the excercise
-			unsigned long tmpDataSchemeWidth = data.at(0).size(); // width is equal over the whole dataScheme
-			unsigned long tmpDataSchemeHeight = data.size();
-			// going through the whole data-scheme
-			for (int k=0; k<tmpDataSchemeHeight-tmpPatternHeightWidth+1; k++) {
-				for (int l=0; l<tmpDataSchemeWidth-tmpPatternHeightWidth+1; l++) {
-					// compare each element of the pattern with the corresponding one of the dataScheme according to the rules described later
-					bool cond1 = false;
-					bool cond2 = false;
-					std::vector<int> tmpListForMedianData;
-					std::vector<int> tmpListForMedianPattern;
-					occurence tmp;
-					tmp.xPos = l;
-					tmp.yPos = k;
-					
-					// std::cout << "current element: " << dataList.at(j).at(k).at(l) << std::endl;
-					
-					for (int m=0; m<tmpPatternHeightWidth; m++) {
-						for (int n=0; n<tmpPatternHeightWidth; n++) {
-							// condition 1: each pair must have a difference of at most 10
-							// condition 2: the median over all values of the temporary part
-							// std::cout << patternList.at(i).at(m).at(n) << std::endl;
-							if ((data.at(k+m).at(l+n) - pattern.at(m).at(n)) < MAX_DIFFERENCE) {
-								cond1 = true;
-							}
-							tmpListForMedianData.push_back(data.at(k+m).at(l+n));
-							tmpListForMedianPattern.push_back(pattern.at(m).at(n));
-						}
+	unsigned long tmpPatternHeightWidth = pattern.size(); // Patterns are always squares according the excercise
+	unsigned long tmpDataSchemeWidth = data.at(0).size(); // width is equal over the whole dataScheme
+	unsigned long tmpDataSchemeHeight = data.size();
+	// going through the whole data-scheme
+	for (int k=0; k<tmpDataSchemeHeight-tmpPatternHeightWidth+1; k++) {
+		for (int l=0; l<tmpDataSchemeWidth-tmpPatternHeightWidth+1; l++) {
+			// compare each element of the pattern with the corresponding one of the dataScheme according to the rules described later
+			bool cond1 = false;
+			bool cond2 = false;
+			std::vector<int> tmpListForMedianData;
+			std::vector<int> tmpListForMedianPattern;
+			occurence tmp;
+			tmp.xPos = l;
+			tmp.yPos = k;
+			
+			// std::cout << "current element: " << dataList.at(j).at(k).at(l) << std::endl;
+			
+			for (int m=0; m<tmpPatternHeightWidth; m++) {
+				for (int n=0; n<tmpPatternHeightWidth; n++) {
+					// condition 1: each pair must have a difference of at most 10
+					// condition 2: the median over all values of the temporary part
+					// std::cout << patternList.at(i).at(m).at(n) << std::endl;
+					if ((data.at(k+m).at(l+n) - pattern.at(m).at(n)) < MAX_DIFFERENCE) {
+						cond1 = true;
 					}
-					// check both conditions; if the first condition is false, it doesn't matter, if the second is true
-					if (cond1) {
-						// calculate median
-						cond2 = checkMedian(tmpListForMedianData, tmpListForMedianPattern);
-						if (cond2) {
-							// calculate goodness
-							tmp.goodness = calculateGoodnes(tmpListForMedianData, tmpListForMedianPattern);
-							// report l,k as coordinates for a found pattern
-							occurenceList.push_back(tmp);
-						}
-					}
+					tmpListForMedianData.push_back(data.at(k+m).at(l+n));
+					tmpListForMedianPattern.push_back(pattern.at(m).at(n));
 				}
 			}
+			// check both conditions; if the first condition is false, it doesn't matter, if the second is true
+			if (cond1) {
+				// calculate median
+				cond2 = checkMedian(tmpListForMedianData, tmpListForMedianPattern);
+				if (cond2) {
+					// calculate goodness
+					tmp.goodness = calculateGoodnes(tmpListForMedianData, tmpListForMedianPattern);
+					// report l,k as coordinates for a found pattern
+					occurenceList.push_back(tmp);
+				}
+			}
+		}
+	}
 	serialEndTime = omp_get_wtime();
 }
 
 
-
-
-int main(int argc, const char * argv[])
-{
-	// TODO cli arguments
-	// TODO measure time
+// computes the min, average, max value of goodness over all occurences
+// v[0]: min
+// v[1]: avg
+// v[2]: max
+std::vector<float> computeMinAvgMaxGoodness() {
+	std::vector<float> result;
+	unsigned long size = occurenceList.size();
 	
+	if (size == 0) {
+		std::cerr << "Failure during average-goodness-computation. Divide by zero is not allowed." << std::endl;
+		exit(EXIT_FAILURE);
+	}
 	
-	data = readFile("data.txt");
-	/*
-	 for (int i=0; i<data.size(); i++) {
-		for (int j=0; j<data.at(i).size(); j++) {
-			std::cout << "xPos: " << j << ", ";
-			std::cout << data.at(i).at(j) << " ";
+	// min, max goodness
+	float min = occurenceList.at(0).goodness;
+	float max = occurenceList.at(0).goodness;
+	float sum = 0.0;
+	for (int i=0; i<size; i++) {
+		if (occurenceList.at(i).goodness < min) {
+			min = occurenceList.at(i).goodness;
 		}
-		std::cout << std::endl;
-	}*/
-	pattern = readFile("pattern.txt");
+		if (occurenceList.at(i).goodness > max) {
+			max = occurenceList.at(i).goodness;
+		}
+		sum += occurenceList.at(i).goodness;
+	}
+		
+	float avg = sum / size;
 	
-	parallelExec();
+	result.push_back(min);
+	result.push_back(avg);
+	result.push_back(max);
 	
-	serialExec();
+	return result;
+}
+
+// writes min, avg, max goodness on std::cout
+// @pre res[0]: min, res[1]: avg, res[2]: max
+void writeGoodness(const std::vector<float> &res) {
+	std::cout << res.at(0) << std::endl;
+	std::cout << res.at(1) << std::endl;
+	std::cout << res.at(2) << std::endl;
+}
+
+// writes each occurence to the file "occurences.txt".
+// Note: If a file name "occurences.txt" already exits, it will be overwritten
+void writeResults() {
+	std::ofstream outfile("occurences.txt", std::ios::out | std::ios::app | std::ios::trunc);
+	outfile.open("occurences.txt");
+	if (!outfile.is_open()) {
+		std::cerr << "There was an error writing the results file!" << std::endl;
+		outfile.close();
+		exit(EXIT_FAILURE);
+	}
 	
-	/*
-	std::cout << "found occurences: " << occurenceList.size() << std::endl;
 	for (int i=0; i<occurenceList.size(); i++) {
-		std::cout << "xPos: " << occurenceList.at(i).xPos << ", yPos: " << occurenceList.at(i).yPos << ", goodness: " << std::setprecision(6)<< occurenceList.at(i).goodness << std::endl;
-	}*/
+		outfile << occurenceList.at(i).xPos << " " << occurenceList.at(i).yPos << std::endl;
+	}
 	
-	std::cout << "Serial Mode: " << serialEndTime-serialStartTime << std::endl;
-	std::cout << "Parallel Mode: " << parallelEndTime-parallelStartTime << std::endl;
-	std::cout << "Ratio: " << (serialEndTime-serialStartTime)/(parallelEndTime-parallelStartTime) << std::endl;
+	outfile.close();
+}
+
+
+void writeUsage() {
+	std::cerr << "usage: [data_matrix.txt] [pattern_matrix.txt] [mode: serial=0, parallel=1] [nrOfThreads]" << std::endl;
+	exit(EXIT_FAILURE);
+}
+
+
+
+int main(int argc, const char * argv[]) {
+	// check cli-arguments
+	if ((argc < 4)                                              // Less than 3 arguments
+        || ((std::strcmp(argv[3], "0") != 0) && (std::strcmp(argv[3], "1")))  // OR no valid mode selected
+		|| ((std::strcmp(argv[3], "1") == 0) // OR if in parallel mode
+			&& ((argc < 5) || (atoi(argv[4]) <= 0)))) { //    AND no 4th argument OR number of threads is smaller-or-equals 0 or no number
+			writeUsage();
+        }
 	
 	
-	// TODO write occurences to file
-	// TODO compute average, min, max goodness over all occurences
 	
-	// TODO makefile: use -fopenmp during compiling, -lgomp during linking, otherwise all openMp directives are completely ignored...
+	// read data and pattern into a 2D structure
+	data = readFile(argv[1]);
+	pattern = readFile(argv[2]);
+	
+	bool serialMode = (strcmp(argv[3], "0") == 0);
+	if (serialMode) {
+		serialExec();
+	} else {
+		parallelExec();
+	}
+	
+	// writes found occurences to a textfile
+	writeResults();
+	// writes min, avg, max goodness to std::cout
+	writeGoodness(computeMinAvgMaxGoodness());
+	
 	
 	return 0;
 }
