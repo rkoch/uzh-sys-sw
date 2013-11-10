@@ -1,13 +1,14 @@
 all: clean patt_rec
 
-patt_rec: main.o
-	g++ main.o -lgomp -o patt_rec
+patt_rec: patt_rec.o
+	g++ patt_rec.o -lgomp -o patt_rec
 
-main.o: src/main.cpp
-	g++ -c -fopenmp src/main.cpp
+patt_rec.o: src/patt_rec.cpp
+	g++ -c -fopenmp src/patt_rec.cpp
 
 clean:
 	rm -rf *.o patt_rec
 
 clean-output:
 	rm -f occurences.txt
+
