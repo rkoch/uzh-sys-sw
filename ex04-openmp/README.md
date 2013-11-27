@@ -52,10 +52,27 @@ For this assignment there is another `make` command available, which will remove
 > make clean-output
 ```
 
+Output format
+-------------
+
+The output file (`occurences.txt`) is in the following format:
+
+```
+[col] [row]
+```
+
+An example:
+
+```
+4 12
+5 19
+```
+
 
 History
 -------
 
+* Fixed results, Fixed protection of critical sections, Some refactoring /rko:rma, 2013-11-27
 * Initial commit /rko:rma, 2013-11-03
 
 
